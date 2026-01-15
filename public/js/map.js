@@ -149,48 +149,58 @@ function setupModal() {
         currentLocation = null;
     });
 
-    // Mobile: Draggable bottom sheet with snap points
-    let startY = 0;
-    let currentTransform = 45; // Default collapsed position (%)
+    // Mobile: TikTok-style bottom sheet (follows finger, snaps on release)
+    const COLLAPSED_POS = 45; // % translateY when collapsed
+    const EXPANDED_POS = 0;   // % translateY when expanded
+
+    let touchStartY = 0;
+    let touchStartTransform = COLLAPSED_POS;
     let isDragging = false;
 
     if (modalContent) {
+        // Touch Start - remember starting position
         modalContent.addEventListener('touchstart', (e) => {
-            startY = e.touches[0].clientY;
-            // Check if currently expanded or collapsed
-            currentTransform = modalContent.classList.contains('expanded') ? 0 : 45;
+            touchStartY = e.touches[0].clientY;
+            touchStartTransform = modalContent.classList.contains('expanded') ? EXPANDED_POS : COLLAPSED_POS;
             isDragging = true;
             modalContent.classList.add('dragging');
         }, { passive: true });
 
+        // Touch Move - follow finger exactly
         modalContent.addEventListener('touchmove', (e) => {
             if (!isDragging) return;
 
-            const currentY = e.touches[0].clientY;
-            const deltaY = currentY - startY;
+            const touchCurrentY = e.touches[0].clientY;
+            const deltaY = touchCurrentY - touchStartY;
             const modalHeight = modalContent.offsetHeight;
+
+            // Convert pixel movement to percentage
             const deltaPercent = (deltaY / modalHeight) * 100;
 
-            // Calculate new position, clamped between 0% and 45%
-            let newTransform = currentTransform + deltaPercent;
-            newTransform = Math.max(0, Math.min(45, newTransform));
-            modalContent.style.transform = `translateY(${newTransform}%)`;
+            // New position = start position + movement (clamped)
+            let newPos = touchStartTransform + deltaPercent;
+            newPos = Math.max(EXPANDED_POS, Math.min(COLLAPSED_POS, newPos));
+
+            modalContent.style.transform = `translateY(${newPos}%)`;
         }, { passive: true });
 
+        // Touch End - snap to closest
         modalContent.addEventListener('touchend', () => {
             if (!isDragging) return;
             isDragging = false;
             modalContent.classList.remove('dragging');
 
-            // Get current position from inline style
+            // Get current position
             const style = modalContent.style.transform;
-            const match = style.match(/translateY\(([\d.]+)%\)/);
-            const currentPos = match ? parseFloat(match[1]) : 45;
+            const match = style.match(/translateY\(([\d.-]+)%\)/);
+            const currentPos = match ? parseFloat(match[1]) : COLLAPSED_POS;
 
-            modalContent.style.transform = ''; // Clear inline style
+            // Clear inline style so CSS class takes over
+            modalContent.style.transform = '';
 
-            // Snap to closest: if past halfway (22.5%), expand; else collapse
-            if (currentPos < 22.5) {
+            // Snap to whichever is closer
+            const midPoint = (COLLAPSED_POS + EXPANDED_POS) / 2; // 22.5%
+            if (currentPos < midPoint) {
                 modalContent.classList.add('expanded');
             } else {
                 modalContent.classList.remove('expanded');
