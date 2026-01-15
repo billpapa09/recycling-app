@@ -117,4 +117,7 @@ if (isVercel) {
     };
 }
 
+// Set flag
+db.isPostgres = !!isVercel;
+
 module.exports = db;

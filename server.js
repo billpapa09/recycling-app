@@ -16,13 +16,14 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Initialize Database Tables
 async function initDb() {
   const pkType = db.isPostgres ? 'SERIAL PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT';
+  const timestampType = db.isPostgres ? 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP' : 'DATETIME DEFAULT CURRENT_TIMESTAMP';
 
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS users (
       id ${pkType},
       firstName TEXT NOT NULL,
       lastName TEXT NOT NULL,
-      createdAt ${db.isPostgres ? 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP' : 'DATETIME DEFAULT CURRENT_TIMESTAMP'}
+      createdAt ${timestampType}
     )
   `).run();
 
@@ -33,7 +34,7 @@ async function initDb() {
       locationId INTEGER NOT NULL,
       date TEXT NOT NULL,
       bottles INTEGER NOT NULL,
-      createdAt ${db.isPostgres ? 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP' : 'DATETIME DEFAULT CURRENT_TIMESTAMP'},
+      createdAt ${timestampType},
       FOREIGN KEY (userId) REFERENCES users(id)
     )
   `).run();
@@ -44,7 +45,7 @@ async function initDb() {
       userId INTEGER NOT NULL,
       locationId INTEGER NOT NULL,
       date TEXT NOT NULL,
-      createdAt ${db.isPostgres ? 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP' : 'DATETIME DEFAULT CURRENT_TIMESTAMP'},
+      createdAt ${timestampType},
       FOREIGN KEY (userId) REFERENCES users(id)
     )
   `).run();
