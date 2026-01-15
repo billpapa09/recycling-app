@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="el">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Διαγωνισμός Ανακύκλωσης</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body class="auth-page">
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-header">
+        <h1>Διαγωνισμός Ανακύκλωσης</h1>
+        <p class="subtitle">Σχολικός διαγωνισμός συλλογής μπουκαλιών</p>
+      </div>
+
+      <form id="authForm" class="auth-form">
+        <div class="form-group">
+          <label for="firstName">Όνομα</label>
+          <input type="text" id="firstName" name="firstName" placeholder="π.χ. Γιώργος" required
+            autocomplete="given-name">
+        </div>
+
+        <div class="form-group">
+          <label for="lastName">Επώνυμο</label>
+          <input type="text" id="lastName" name="lastName" placeholder="π.χ. Παπαδόπουλος" required
+            autocomplete="family-name">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-full" id="loginBtn">Σύνδεση</button>
+      </form>
+
+      <div id="statusMessage" class="status-message hidden"></div>
+    </div>
+  </div>
+
+  <script src="js/auth.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="el">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Διαχείριση - Διαγωνισμός Ανακύκλωσης</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body class="admin-page">
+    <!-- Είσοδος με κωδικό -->
+    <div id="passwordModal" class="modal active">
+        <div class="modal-content">
+            <h2>Είσοδος Διαχειριστή</h2>
+            <form id="passwordForm">
+                <div class="form-group">
+                    <label for="adminPassword">Κωδικός</label>
+                    <input type="password" id="adminPassword" placeholder="Εισάγετε κωδικό" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">Είσοδος</button>
+            </form>
+            <p id="passwordError" class="error-text hidden"></p>
+        </div>
+    </div>
+
+    <!-- Πίνακας Διαχείρισης -->
+    <div id="adminDashboard" class="admin-dashboard hidden">
+        <header class="admin-header">
+            <div class="header-left">
+                <h1>Διαχείριση</h1>
+            </div>
+            <a href="index.html" class="btn btn-secondary">Επιστροφή</a>
+        </header>
+
+        <main class="admin-main">
+            <section class="admin-section">
+                <h2>Εγγεγραμμένοι Χρήστες</h2>
+                <div id="usersList" class="user-list">
+                    <p class="empty-message">Φόρτωση...</p>
+                </div>
+            </section>
+
+            <section class="admin-section">
+                <h2>Επιτρεπόμενοι Χρήστες (20)</h2>
+                <div id="allowedList" class="user-list">
+                    <p class="empty-message">Φόρτωση...</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const passwordModal = document.getElementById('passwordModal');
+            const adminDashboard = document.getElementById('adminDashboard');
+            const passwordForm = document.getElementById('passwordForm');
+            const passwordError = document.getElementById('passwordError');
+
+            passwordForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const password = document.getElementById('adminPassword').value;
+
+                try {
+                    const response = await fetch('/api/admin/verify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ password })
+                    });
+
+                    if (response.ok) {
+                        passwordModal.classList.remove('active');
+                        adminDashboard.classList.remove('hidden');
+                        loadData();
+                    } else {
+                        passwordError.textContent = 'Λάθος κωδικός';
+                        passwordError.classList.remove('hidden');
+                    }
+                } catch (error) {
+                    passwordError.textContent = 'Σφάλμα σύνδεσης';
+                    passwordError.classList.remove('hidden');
+                }
+            });
+
+            async function loadData() {
+                // Φόρτωση χρηστών που έχουν συνδεθεί
+                try {
+                    const usersRes = await fetch('/api/admin/users');
+                    const users = await usersRes.json();
+
+                    const usersList = document.getElementById('usersList');
+                    if (users.length === 0) {
+                        usersList.innerHTML = '<p class="empty-message">Κανείς δεν έχει συνδεθεί ακόμα</p>';
+                    } else {
+                        usersList.innerHTML = users.map(user => `
+              <div class="user-card approved">
+                <div class="user-info">
+                  <span class="user-name">${user.firstName} ${user.lastName}</span>
+                </div>
+              </div>
+            `).join('');
+                    }
+                } catch (error) {
+                    console.error('Σφάλμα φόρτωσης:', error);
+                }
+
+                // Φόρτωση λίστας επιτρεπόμενων
+                try {
+                    const allowedRes = await fetch('/api/admin/allowed');
+                    const allowed = await allowedRes.json();
+
+                    const allowedList = document.getElementById('allowedList');
+                    allowedList.innerHTML = allowed.map(user => `
+            <div class="user-card">
+              <div class="user-info">
+                <span class="user-name">${user.firstName} ${user.lastName}</span>
+              </div>
+            </div>
+          `).join('');
+                } catch (error) {
+                    console.error('Σφάλμα φόρτωσης:', error);
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

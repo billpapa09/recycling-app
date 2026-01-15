@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="el">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Χάρτης - Διαγωνισμός Ανακύκλωσης</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body class="map-page">
+    <header class="map-header">
+        <div class="header-left">
+            <h1>Διαγωνισμός Ανακύκλωσης</h1>
+            <div class="legend">
+                <span class="legend-label">Συλλογή:</span>
+                <span class="legend-item"><span class="legend-dot green"></span>Σήμερα</span>
+                <span class="legend-item"><span class="legend-dot orange"></span>Παλιά</span>
+                <span class="legend-item"><span class="legend-dot red"></span>Καμία</span>
+            </div>
+        </div>
+        <div class="header-stats">
+            <div class="grand-total">
+                <span class="total-label">Σύνολο:</span>
+                <span class="total-value" id="grandTotal">0</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <span class="user-name" id="userName"></span>
+            <button class="btn btn-secondary" id="logoutBtn">Έξοδος</button>
+        </div>
+    </header>
+
+    <div id="map" class="map-container"></div>
+
+    <!-- Entry Modal -->
+    <div id="entryModal" class="modal">
+        <div class="modal-content entry-modal">
+            <button class="modal-close" id="closeModal">&times;</button>
+
+            <div class="modal-header">
+                <h2 id="locationName">Κέντρο Ανακύκλωσης</h2>
+                <div class="location-total">
+                    <span>Σύνολο:</span>
+                    <span class="location-total-value" id="locationTotal">0</span>
+                </div>
+                <div class="location-hours" id="locationHours">Ώρες: 24/7</div>
+                <a id="navigateBtn" href="#" target="_blank" class="btn btn-primary btn-navigate">Πλοήγηση</a>
+            </div>
+
+            <div class="modal-body">
+                <form id="entryForm" class="entry-form">
+                    <div class="form-group">
+                        <label for="entryDate">Ημερομηνία</label>
+                        <input type="date" id="entryDate" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="bottleCount">Αριθμός Μπουκαλιών</label>
+                        <input type="number" id="bottleCount" min="1" placeholder="π.χ. 25" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-full">Καταχώρηση</button>
+                </form>
+
+                <div class="entries-section">
+                    <h3>Πρόσφατες Καταχωρήσεις</h3>
+                    <div id="entriesList" class="entries-list">
+                        <p class="empty-message">Δεν υπάρχουν καταχωρήσεις</p>
+                    </div>
+                </div>
+
+                <div class="schedule-section">
+                    <h3>Προγραμματισμός</h3>
+                    <div class="schedule-form">
+                        <input type="date" id="scheduleDate" class="schedule-input">
+                        <button type="button" id="addScheduleBtn" class="btn btn-secondary btn-small">Θα πάω</button>
+                    </div>
+                    <div id="schedulesList" class="schedules-list">
+                        <p class="empty-message">Κανείς δεν έχει προγραμματίσει</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="js/map.js"></script>
+</body>
+
+</html>
