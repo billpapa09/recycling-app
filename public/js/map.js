@@ -353,7 +353,9 @@ async function refreshMarkers() {
 async function loadLocationSchedules(locationId) {
     try {
         const response = await fetch(`/api/schedules/${locationId}`);
-        const schedules = await response.json();
+        const data = await response.json();
+        const schedules = data.schedules;
+        const today = data.today; // YYYY-MM-DD
 
         const schedulesList = document.getElementById('schedulesList');
 
@@ -362,19 +364,68 @@ async function loadLocationSchedules(locationId) {
             return;
         }
 
-        schedulesList.innerHTML = schedules.map(schedule => {
-            const isOwner = schedule.userId === currentUser.id;
-            const dateStr = new Date(schedule.date).toLocaleDateString('el-GR');
-            return `
-      <div class="schedule-item">
-        <div class="schedule-info">
-          <span class="schedule-user">${schedule.firstName} ${schedule.lastName}</span>
-          <span class="schedule-date">${dateStr}</span>
-        </div>
-        ${isOwner ? `<button class="entry-btn delete-btn" onclick="deleteSchedule(${schedule.id})">✕</button>` : ''}
-      </div>
-    `;
-        }).join('');
+        // Split into Upcoming (>= Today) and History (< Today)
+        const upcoming = schedules.filter(s => s.date >= today).reverse(); // Show closest date first
+        const history = schedules.filter(s => s.date < today); // Already sorted DESC
+
+        let html = '';
+
+        // Upcoming Section
+        if (upcoming.length > 0) {
+            html += upcoming.map(schedule => {
+                const isOwner = schedule.userId === currentUser.id;
+                const dateStr = new Date(schedule.date).toLocaleDateString('el-GR');
+                const isCompleted = schedule.completed === 1;
+
+                return `
+                  <div class="schedule-item">
+                    <div class="schedule-info">
+                      <span class="schedule-user">
+                        ${schedule.firstName} ${schedule.lastName}
+                        ${isCompleted ? `<span class="status-icon status-completed" title="Ολοκληρώθηκε">✓</span>` : ''}
+                      </span>
+                      <span class="schedule-date">${dateStr}</span>
+                    </div>
+                    ${isOwner ? `<button class="entry-btn delete-btn" onclick="deleteSchedule(${schedule.id})">✕</button>` : ''}
+                  </div>
+                `;
+            }).join('');
+        } else {
+            html += '<p class="empty-message">Δεν υπάρχουν μελλοντικά ραντεβού</p>';
+        }
+
+        // History Section (Logs)
+        if (history.length > 0) {
+            html += `
+              <div class="schedule-history-section">
+                <span class="history-label">Ιστορικό / Logs</span>
+                ${history.map(schedule => {
+                const dateStr = new Date(schedule.date).toLocaleDateString('el-GR');
+                const isCompleted = schedule.completed === 1;
+
+                return `
+                      <div class="schedule-item history-item">
+                        <div class="schedule-info">
+                          <span class="schedule-user">
+                            ${schedule.firstName} ${schedule.lastName}
+                          </span>
+                          <span class="schedule-status-row" style="display:flex; align-items:center;">
+                             ${isCompleted
+                        ? `<span class="status-icon status-completed">✓</span><span class="schedule-bottles">(${schedule.bottles} μπουκάλια)</span>`
+                        : `<span class="status-icon status-missed">✕</span><span class="schedule-bottles">(Δεν πήγε)</span>`
+                    }
+                          </span>
+                        </div>
+                        <span class="schedule-date">${dateStr}</span>
+                      </div>
+                    `;
+            }).join('')}
+              </div>
+            `;
+        }
+
+        schedulesList.innerHTML = html;
+
     } catch (error) {
         console.error('Error loading schedules:', error);
     }

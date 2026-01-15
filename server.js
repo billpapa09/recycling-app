@@ -349,23 +349,26 @@ app.post('/api/schedules', async (req, res) => {
   }
 });
 
-// Get schedules for a location
+// Get schedules for a location (history + upcoming)
 app.get('/api/schedules/:locationId', async (req, res) => {
   try {
     const { locationId } = req.params;
 
-    // Get today's date in Greek timezone
+    // Get today's date in Greek timezone for frontend comparison
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Athens' });
 
+    // Join with entries to see if completed
     const schedules = await db.prepare(`
-      SELECT s.*, u.firstName, u.lastName 
+      SELECT s.*, u.firstName, u.lastName, e.bottles,
+             CASE WHEN e.id IS NOT NULL THEN 1 ELSE 0 END as completed
       FROM schedules s 
       JOIN users u ON s.userId = u.id 
-      WHERE s.locationId = ? AND s.date >= ?
-      ORDER BY s.date ASC
-    `).all(locationId, today);
+      LEFT JOIN entries e ON s.userId = e.userId AND s.locationId = e.locationId AND s.date = e.date
+      WHERE s.locationId = ?
+      ORDER BY s.date DESC
+    `).all(locationId);
 
-    res.json(schedules);
+    res.json({ schedules, today });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Server error' });

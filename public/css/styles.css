@@ -598,6 +598,43 @@ body {
   margin-bottom: 10px;
 }
 
+.schedule-history-section {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+
+.history-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.status-icon {
+  margin-right: 6px;
+  font-size: 14px;
+}
+
+.status-completed {
+  color: #10b981;
+}
+
+/* Green */
+.status-missed {
+  color: #ef4444;
+}
+
+/* Red */
+
+.schedule-bottles {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
 .schedule-input {
   flex: 1;
   padding: 8px 10px;
