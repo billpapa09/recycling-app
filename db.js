@@ -24,6 +24,12 @@ if (isVercel) {
         }
     });
 
+    // Helper to convert SQLite '?' parameters to Postgres '$1, $2, ...'
+    const convertSql = (sql) => {
+        let index = 1;
+        return sql.replace(/\?/g, () => `$${index++}`);
+    };
+
     // Adapter for Postgres
     db = {
         pool,
@@ -31,23 +37,23 @@ if (isVercel) {
         // BUT server.js must be async now.
 
         query: async (text, params = []) => {
-            return await pool.query(text, params);
+            return await pool.query(convertSql(text), params);
         },
 
-        // Prepare method compatibility shim (for easier migration)
-        // Note: This returns an object with methods that return Promises
+        // Prepare method compatibility shim
         prepare: (sql) => {
+            const convertedSql = convertSql(sql);
             return {
                 all: async (...args) => {
-                    const res = await pool.query(sql, args);
+                    const res = await pool.query(convertedSql, args);
                     return res.rows;
                 },
                 get: async (...args) => {
-                    const res = await pool.query(sql, args);
+                    const res = await pool.query(convertedSql, args);
                     return res.rows[0];
                 },
                 run: async (...args) => {
-                    const res = await pool.query(sql, args);
+                    const res = await pool.query(convertedSql, args);
                     return {
                         changes: res.rowCount,
                         lastInsertRowid: res.rows[0]?.id // Postgres needs RETURNING id
