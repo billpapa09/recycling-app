@@ -398,6 +398,42 @@ app.delete('/api/schedules/:id', async (req, res) => {
   }
 });
 
+// Temporary endpoint to fix data
+app.get('/api/fix-data', async (req, res) => {
+  try {
+    // 1. Clear schedules
+    await db.prepare('DELETE FROM schedules').run();
+
+    // 2. Restore Mixalis
+    // Try to find him
+    let mixalis = await db.prepare('SELECT * FROM users WHERE firstName LIKE ? OR firstName LIKE ?')
+      .get('%Mixalis%', '%Μιχάλης%');
+
+    let msg = 'Schedules cleared. ';
+
+    if (mixalis) {
+      // Insert dummy bottles if not exist
+      // Check if he has entries
+      const entries = await db.prepare('SELECT * FROM entries WHERE userId = ?').all(mixalis.id);
+      if (entries.length === 0) {
+        const insertSql = 'INSERT INTO entries (userId, locationId, date, bottles) VALUES (?, ?, ?, ?)' + (db.isPostgres ? ' RETURNING id' : '');
+        // Add a past entry
+        await db.prepare(insertSql).run(mixalis.id, 141, '2025-01-01', 35);
+        msg += 'Restored 35 bottles for Mixalis.';
+      } else {
+        msg += 'Mixalis already has bottles.';
+      }
+    } else {
+      msg += 'Mixalis user not found (he needs to login first).';
+    }
+
+    res.json({ success: true, message: msg });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Start server
 (async () => {
   await initDb();

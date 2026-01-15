@@ -355,7 +355,10 @@ async function loadLocationSchedules(locationId) {
         const response = await fetch(`/api/schedules/${locationId}`);
         const data = await response.json();
         const schedules = data.schedules;
-        const today = data.today; // YYYY-MM-DD
+
+        // Debug: Check for simulated date
+        const simulatedToday = localStorage.getItem('simulatedToday');
+        const today = simulatedToday || data.today; // YYYY-MM-DD
 
         const schedulesList = document.getElementById('schedulesList');
 
