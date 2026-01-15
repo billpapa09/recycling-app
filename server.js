@@ -1,49 +1,56 @@
 const express = require('express');
-const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
+const db = require('./db'); // Use our adapter
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Admin password
-const ADMIN_PASSWORD = 'admin123';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
 // Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Initialize Database
-const db = new Database(path.join(__dirname, 'database.sqlite'));
+// Initialize Database Tables
+async function initDb() {
+  const pkType = db.isPostgres ? 'SERIAL PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT';
 
-// Create tables
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    firstName TEXT NOT NULL,
-    lastName TEXT NOT NULL,
-    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-  
-  CREATE TABLE IF NOT EXISTS entries (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    userId INTEGER NOT NULL,
-    locationId INTEGER NOT NULL,
-    date TEXT NOT NULL,
-    bottles INTEGER NOT NULL,
-    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (userId) REFERENCES users(id)
-  );
-  
-  CREATE TABLE IF NOT EXISTS schedules (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    userId INTEGER NOT NULL,
-    locationId INTEGER NOT NULL,
-    date TEXT NOT NULL,
-    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (userId) REFERENCES users(id)
-  );
-`);
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS users (
+      id ${pkType},
+      firstName TEXT NOT NULL,
+      lastName TEXT NOT NULL,
+      createdAt ${db.isPostgres ? 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP' : 'DATETIME DEFAULT CURRENT_TIMESTAMP'}
+    )
+  `).run();
+
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS entries (
+      id ${pkType},
+      userId INTEGER NOT NULL,
+      locationId INTEGER NOT NULL,
+      date TEXT NOT NULL,
+      bottles INTEGER NOT NULL,
+      createdAt ${db.isPostgres ? 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP' : 'DATETIME DEFAULT CURRENT_TIMESTAMP'},
+      FOREIGN KEY (userId) REFERENCES users(id)
+    )
+  `).run();
+
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS schedules (
+      id ${pkType},
+      userId INTEGER NOT NULL,
+      locationId INTEGER NOT NULL,
+      date TEXT NOT NULL,
+      createdAt ${db.isPostgres ? 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP' : 'DATETIME DEFAULT CURRENT_TIMESTAMP'},
+      FOREIGN KEY (userId) REFERENCES users(id)
+    )
+  `).run();
+
+  console.log('Database tables initialized');
+}
 
 // Load data
 const locationsPath = path.join(__dirname, 'data', 'locations.json');
@@ -75,32 +82,42 @@ function findAllowedUser(firstName, lastName) {
 // ====== AUTH ROUTES ======
 
 // Login user
-app.post('/api/login', (req, res) => {
-  const { firstName, lastName } = req.body;
+app.post('/api/login', async (req, res) => {
+  try {
+    const { firstName, lastName } = req.body;
 
-  if (!firstName || !lastName) {
-    return res.status(400).json({ error: 'Συμπληρώστε όνομα και επώνυμο' });
+    if (!firstName || !lastName) {
+      return res.status(400).json({ error: 'Συμπληρώστε όνομα και επώνυμο' });
+    }
+
+    // Check if user is in allowed list
+    const allowedUser = findAllowedUser(firstName, lastName);
+
+    if (!allowedUser) {
+      return res.status(403).json({ error: 'Δεν έχετε πρόσβαση στην εφαρμογή' });
+    }
+
+    // Check if user exists in database
+    let user = await db.prepare('SELECT * FROM users WHERE firstName = ? AND lastName = ?')
+      .get(allowedUser.firstName, allowedUser.lastName);
+
+    if (!user) {
+      // Create user on first login
+      const insertSql = 'INSERT INTO users (firstName, lastName) VALUES (?, ?)' + (db.isPostgres ? ' RETURNING id' : '');
+      const result = await db.prepare(insertSql).run(allowedUser.firstName, allowedUser.lastName);
+
+      const newId = db.isPostgres ? result.lastInsertRowid : result.lastInsertRowid;
+      // In our adapter, result.lastInsertRowid is populated for Postgres if RETURNING id is used (see adapter logic check)
+      // Actually my adapter logic for Postgres set lastInsertRowid from res.rows[0]?.id.
+
+      user = await db.prepare('SELECT * FROM users WHERE id = ?').get(newId);
+    }
+
+    res.json({ success: true, user });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
   }
-
-  // Check if user is in allowed list
-  const allowedUser = findAllowedUser(firstName, lastName);
-
-  if (!allowedUser) {
-    return res.status(403).json({ error: 'Δεν έχετε πρόσβαση στην εφαρμογή' });
-  }
-
-  // Check if user exists in database
-  let user = db.prepare('SELECT * FROM users WHERE firstName = ? AND lastName = ?')
-    .get(allowedUser.firstName, allowedUser.lastName);
-
-  if (!user) {
-    // Create user on first login
-    const result = db.prepare('INSERT INTO users (firstName, lastName) VALUES (?, ?)')
-      .run(allowedUser.firstName, allowedUser.lastName);
-    user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
-  }
-
-  res.json({ success: true, user });
 });
 
 // ====== ADMIN ROUTES ======
@@ -117,8 +134,8 @@ app.post('/api/admin/verify', (req, res) => {
 });
 
 // Get all users
-app.get('/api/admin/users', (req, res) => {
-  const users = db.prepare('SELECT * FROM users ORDER BY createdAt DESC').all();
+app.get('/api/admin/users', async (req, res) => {
+  const users = await db.prepare('SELECT * FROM users ORDER BY createdAt DESC').all();
   res.json(users);
 });
 
@@ -137,201 +154,250 @@ app.get('/api/locations', (req, res) => {
 // ====== ENTRIES ROUTES ======
 
 // Add bottle entry
-app.post('/api/entries', (req, res) => {
-  const { userId, locationId, date, bottles } = req.body;
+app.post('/api/entries', async (req, res) => {
+  try {
+    const { userId, locationId, date, bottles } = req.body;
 
-  if (!userId || !locationId || !date || bottles === undefined) {
-    return res.status(400).json({ error: 'Λείπουν απαιτούμενα πεδία' });
-  }
+    if (!userId || !locationId || !date || bottles === undefined) {
+      return res.status(400).json({ error: 'Λείπουν απαιτούμενα πεδία' });
+    }
 
-  // Check if entry already exists for this user/location/date
-  const existing = db.prepare('SELECT * FROM entries WHERE userId = ? AND locationId = ? AND date = ?').get(userId, locationId, date);
+    // Check if entry already exists for this user/location/date
+    const existing = await db.prepare('SELECT * FROM entries WHERE userId = ? AND locationId = ? AND date = ?').get(userId, locationId, date);
 
-  if (existing) {
-    // Update existing entry
-    db.prepare('UPDATE entries SET bottles = ? WHERE id = ?').run(bottles, existing.id);
-    res.json({ success: true, updated: true });
-  } else {
-    // Create new entry
-    db.prepare('INSERT INTO entries (userId, locationId, date, bottles) VALUES (?, ?, ?, ?)').run(userId, locationId, date, bottles);
-    res.json({ success: true, created: true });
+    if (existing) {
+      // Update existing entry
+      await db.prepare('UPDATE entries SET bottles = ? WHERE id = ?').run(bottles, existing.id);
+      res.json({ success: true, updated: true });
+    } else {
+      // Create new entry
+      const insertSql = 'INSERT INTO entries (userId, locationId, date, bottles) VALUES (?, ?, ?, ?)' + (db.isPostgres ? ' RETURNING id' : '');
+      await db.prepare(insertSql).run(userId, locationId, date, bottles);
+      res.json({ success: true, created: true });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
 // Update entry
-app.put('/api/entries/:id', (req, res) => {
-  const { id } = req.params;
-  const { bottles, userId } = req.body;
+app.put('/api/entries/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { bottles, userId } = req.body;
 
-  if (!bottles || bottles < 0) {
-    return res.status(400).json({ error: 'Μη έγκυρος αριθμός μπουκαλιών' });
+    if (!bottles || bottles < 0) {
+      return res.status(400).json({ error: 'Μη έγκυρος αριθμός μπουκαλιών' });
+    }
+
+    const entry = await db.prepare('SELECT * FROM entries WHERE id = ?').get(id);
+    if (!entry) {
+      return res.status(404).json({ error: 'Η καταχώρηση δεν βρέθηκε' });
+    }
+
+    if (entry.userId !== userId) {
+      return res.status(403).json({ error: 'Δεν έχετε δικαίωμα επεξεργασίας' });
+    }
+
+    await db.prepare('UPDATE entries SET bottles = ? WHERE id = ?').run(bottles, id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
   }
-
-  const entry = db.prepare('SELECT * FROM entries WHERE id = ?').get(id);
-  if (!entry) {
-    return res.status(404).json({ error: 'Η καταχώρηση δεν βρέθηκε' });
-  }
-
-  if (entry.userId !== userId) {
-    return res.status(403).json({ error: 'Δεν έχετε δικαίωμα επεξεργασίας' });
-  }
-
-  db.prepare('UPDATE entries SET bottles = ? WHERE id = ?').run(bottles, id);
-  res.json({ success: true });
 });
 
 // Delete entry
-app.delete('/api/entries/:id', (req, res) => {
-  const { id } = req.params;
-  const userId = parseInt(req.query.userId);
+app.delete('/api/entries/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = parseInt(req.query.userId);
 
-  const entry = db.prepare('SELECT * FROM entries WHERE id = ?').get(id);
-  if (!entry) {
-    return res.status(404).json({ error: 'Η καταχώρηση δεν βρέθηκε' });
+    const entry = await db.prepare('SELECT * FROM entries WHERE id = ?').get(id);
+    if (!entry) {
+      return res.status(404).json({ error: 'Η καταχώρηση δεν βρέθηκε' });
+    }
+
+    if (entry.userId !== userId) {
+      return res.status(403).json({ error: 'Δεν έχετε δικαίωμα διαγραφής' });
+    }
+
+    await db.prepare('DELETE FROM entries WHERE id = ?').run(id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
   }
-
-  if (entry.userId !== userId) {
-    return res.status(403).json({ error: 'Δεν έχετε δικαίωμα διαγραφής' });
-  }
-
-  db.prepare('DELETE FROM entries WHERE id = ?').run(id);
-  res.json({ success: true });
 });
 
 // Get entries for a location
-app.get('/api/entries/:locationId', (req, res) => {
-  const { locationId } = req.params;
+app.get('/api/entries/:locationId', async (req, res) => {
+  try {
+    const { locationId } = req.params;
 
-  const entries = db.prepare(`
-    SELECT e.*, u.firstName, u.lastName 
-    FROM entries e 
-    JOIN users u ON e.userId = u.id 
-    WHERE e.locationId = ? 
-    ORDER BY e.date DESC
-  `).all(locationId);
+    const entries = await db.prepare(`
+      SELECT e.*, u.firstName, u.lastName 
+      FROM entries e 
+      JOIN users u ON e.userId = u.id 
+      WHERE e.locationId = ? 
+      ORDER BY e.date DESC
+    `).all(locationId);
 
-  const total = db.prepare('SELECT SUM(bottles) as total FROM entries WHERE locationId = ?').get(locationId);
+    const total = await db.prepare('SELECT SUM(bottles) as total FROM entries WHERE locationId = ?').get(locationId);
 
-  res.json({ entries, total: total.total || 0 });
+    res.json({ entries, total: total.total || 0 });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 // Get all totals
-app.get('/api/totals', (req, res) => {
-  const locationTotals = db.prepare(`
-    SELECT locationId, SUM(bottles) as total 
-    FROM entries 
-    GROUP BY locationId
-  `).all();
+app.get('/api/totals', async (req, res) => {
+  try {
+    const locationTotals = await db.prepare(`
+      SELECT locationId, SUM(bottles) as total 
+      FROM entries 
+      GROUP BY locationId
+    `).all();
 
-  const grandTotal = db.prepare('SELECT SUM(bottles) as total FROM entries').get();
+    const grandTotal = await db.prepare('SELECT SUM(bottles) as total FROM entries').get();
 
-  // Get today's date in YYYY-MM-DD format (Greek timezone)
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Athens' });
+    // Get today's date in YYYY-MM-DD format (Greek timezone)
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Athens' });
 
-  // Get locations that have entries today
-  const todayEntries = db.prepare(`
-    SELECT DISTINCT locationId 
-    FROM entries 
-    WHERE date = ?
-  `).all(today);
+    // Get locations that have entries today
+    const todayEntries = await db.prepare(`
+      SELECT DISTINCT locationId 
+      FROM entries 
+      WHERE date = ?
+    `).all(today);
 
-  // Get locations with upcoming schedules
-  const scheduledEntries = db.prepare(`
-    SELECT DISTINCT locationId 
-    FROM schedules 
-    WHERE date >= ?
-  `).all(today);
+    // Get locations with upcoming schedules
+    const scheduledEntries = await db.prepare(`
+      SELECT DISTINCT locationId 
+      FROM schedules 
+      WHERE date >= ?
+    `).all(today);
 
-  const totalsMap = {};
-  locationTotals.forEach(lt => {
-    totalsMap[lt.locationId] = lt.total;
-  });
+    const totalsMap = {};
+    locationTotals.forEach(lt => {
+      totalsMap[lt.locationId] = lt.total;
+    });
 
-  const todayLocations = todayEntries.map(e => e.locationId);
-  const scheduledLocations = scheduledEntries.map(e => e.locationId);
+    const todayLocations = todayEntries.map(e => e.locationId);
+    const scheduledLocations = scheduledEntries.map(e => e.locationId);
 
-  res.json({
-    locationTotals: totalsMap,
-    grandTotal: grandTotal.total || 0,
-    todayLocations: todayLocations,
-    scheduledLocations: scheduledLocations
-  });
+    res.json({
+      locationTotals: totalsMap,
+      grandTotal: grandTotal.total || 0,
+      todayLocations: todayLocations,
+      scheduledLocations: scheduledLocations
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 // Get user's entries
-app.get('/api/user/:userId/entries', (req, res) => {
-  const { userId } = req.params;
+app.get('/api/user/:userId/entries', async (req, res) => {
+  try {
+    const { userId } = req.params;
 
-  const entries = db.prepare(`
-    SELECT e.* 
-    FROM entries e 
-    WHERE e.userId = ? 
-    ORDER BY e.date DESC
-  `).all(userId);
+    const entries = await db.prepare(`
+      SELECT e.* 
+      FROM entries e 
+      WHERE e.userId = ? 
+      ORDER BY e.date DESC
+    `).all(userId);
 
-  const total = db.prepare('SELECT SUM(bottles) as total FROM entries WHERE userId = ?').get(userId);
+    const total = await db.prepare('SELECT SUM(bottles) as total FROM entries WHERE userId = ?').get(userId);
 
-  res.json({ entries, total: total.total || 0 });
+    res.json({ entries, total: total.total || 0 });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 // ====== SCHEDULE ROUTES ======
 
 // Add schedule
-app.post('/api/schedules', (req, res) => {
-  const { userId, locationId, date } = req.body;
+app.post('/api/schedules', async (req, res) => {
+  try {
+    const { userId, locationId, date } = req.body;
 
-  if (!userId || !locationId || !date) {
-    return res.status(400).json({ error: 'Λείπουν απαιτούμενα πεδία' });
+    if (!userId || !locationId || !date) {
+      return res.status(400).json({ error: 'Λείπουν απαιτούμενα πεδία' });
+    }
+
+    // Check if already scheduled for this user/location/date
+    const existing = await db.prepare('SELECT * FROM schedules WHERE userId = ? AND locationId = ? AND date = ?').get(userId, locationId, date);
+    if (existing) {
+      return res.status(400).json({ error: 'Έχετε ήδη προγραμματίσει αυτή την ημερομηνία' });
+    }
+
+    const insertSql = 'INSERT INTO schedules (userId, locationId, date) VALUES (?, ?, ?)' + (db.isPostgres ? ' RETURNING id' : '');
+    await db.prepare(insertSql).run(userId, locationId, date);
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
   }
-
-  // Check if already scheduled for this user/location/date
-  const existing = db.prepare('SELECT * FROM schedules WHERE userId = ? AND locationId = ? AND date = ?').get(userId, locationId, date);
-  if (existing) {
-    return res.status(400).json({ error: 'Έχετε ήδη προγραμματίσει αυτή την ημερομηνία' });
-  }
-
-  db.prepare('INSERT INTO schedules (userId, locationId, date) VALUES (?, ?, ?)').run(userId, locationId, date);
-  res.json({ success: true });
 });
 
 // Get schedules for a location
-app.get('/api/schedules/:locationId', (req, res) => {
-  const { locationId } = req.params;
+app.get('/api/schedules/:locationId', async (req, res) => {
+  try {
+    const { locationId } = req.params;
 
-  // Get today's date in Greek timezone
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Athens' });
+    // Get today's date in Greek timezone
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Athens' });
 
-  const schedules = db.prepare(`
-    SELECT s.*, u.firstName, u.lastName 
-    FROM schedules s 
-    JOIN users u ON s.userId = u.id 
-    WHERE s.locationId = ? AND s.date >= ?
-    ORDER BY s.date ASC
-  `).all(locationId, today);
+    const schedules = await db.prepare(`
+      SELECT s.*, u.firstName, u.lastName 
+      FROM schedules s 
+      JOIN users u ON s.userId = u.id 
+      WHERE s.locationId = ? AND s.date >= ?
+      ORDER BY s.date ASC
+    `).all(locationId, today);
 
-  res.json(schedules);
+    res.json(schedules);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 // Delete schedule
-app.delete('/api/schedules/:id', (req, res) => {
-  const { id } = req.params;
-  const userId = parseInt(req.query.userId);
+app.delete('/api/schedules/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = parseInt(req.query.userId);
 
-  const schedule = db.prepare('SELECT * FROM schedules WHERE id = ?').get(id);
-  if (!schedule) {
-    return res.status(404).json({ error: 'Δεν βρέθηκε' });
+    const schedule = await db.prepare('SELECT * FROM schedules WHERE id = ?').get(id);
+    if (!schedule) {
+      return res.status(404).json({ error: 'Δεν βρέθηκε' });
+    }
+
+    if (schedule.userId !== userId) {
+      return res.status(403).json({ error: 'Δεν έχετε δικαίωμα διαγραφής' });
+    }
+
+    await db.prepare('DELETE FROM schedules WHERE id = ?').run(id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
   }
-
-  if (schedule.userId !== userId) {
-    return res.status(403).json({ error: 'Δεν έχετε δικαίωμα διαγραφής' });
-  }
-
-  db.prepare('DELETE FROM schedules WHERE id = ?').run(id);
-  res.json({ success: true });
 });
 
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server: http://localhost:${PORT}`);
-  console.log(`Κινητό: http://192.168.1.12:${PORT}`);
-});
+(async () => {
+  await initDb();
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+})();
