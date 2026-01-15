@@ -132,29 +132,37 @@ function setupModal() {
     const modal = document.getElementById('entryModal');
     const closeBtn = document.getElementById('closeModal');
     const entryForm = document.getElementById('entryForm');
+    const modalContent = modal.querySelector('.modal-content');
+
+    // Reset expansion when modal closes
+    const resetModalExpansion = () => {
+        if (modalContent) {
+            modalContent.classList.remove('expanded');
+            modalContent.scrollTop = 0;
+        }
+    };
 
     // Close modal
     closeBtn.addEventListener('click', () => {
         modal.classList.remove('active');
+        resetModalExpansion();
         currentLocation = null;
     });
 
-    // Mobile: Expand modal on scroll down, snap back on scroll to top
-    const modalContent = modal.querySelector('.modal-content');
+    // Mobile: Expand modal on scroll down (stays expanded until modal closes)
     if (modalContent) {
         modalContent.addEventListener('scroll', () => {
-            if (modalContent.scrollTop > 50) {
+            if (modalContent.scrollTop > 30) {
                 modalContent.classList.add('expanded');
-            } else {
-                modalContent.classList.remove('expanded');
             }
-        });
+        }, { passive: true });
     }
 
     // Close on outside click
     modal.addEventListener('click', (e) => {
         if (e.target === modal) {
             modal.classList.remove('active');
+            resetModalExpansion();
             currentLocation = null;
         }
     });
