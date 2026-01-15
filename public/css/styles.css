@@ -390,7 +390,7 @@ body {
   padding: 16px;
   padding-bottom: calc(16px + env(safe-area-inset-bottom));
   width: 100%;
-  max-height: 60vh;
+  max-height: 85vh;
   overflow-y: auto;
   position: relative;
 }
@@ -837,68 +837,6 @@ body {
   100% {
     transform: scale(1);
   }
-}
-
-/* Debug Controls */
-#debug-controls {
-  position: fixed;
-  bottom: 20px;
-  left: 20px;
-  /* Left side to avoid map controls */
-  z-index: 9999;
-  font-family: 'Inter', sans-serif;
-}
-
-.debug-panel {
-  background: #1a1a1a;
-  border: 1px solid #333;
-  padding: 15px;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-  margin-bottom: 10px;
-  width: 250px;
-}
-
-.debug-panel h4 {
-  margin: 0 0 10px 0;
-  color: #fff;
-  font-size: 14px;
-}
-
-.debug-panel p {
-  font-size: 12px;
-  color: #ccc;
-  margin-bottom: 10px;
-}
-
-.debug-panel.hidden {
-  display: none;
-}
-
-.debug-toggle {
-  background: #333;
-  color: white;
-  border: 1px solid #555;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.debug-toggle:hover {
-  background: #444;
-  transform: scale(1.1);
-}
-
-#debug-status {
-  margin-top: 10px;
-  font-size: 11px;
-  color: #888;
 }
 
 @keyframes clock-bounce {

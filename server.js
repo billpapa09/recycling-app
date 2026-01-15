@@ -334,6 +334,12 @@ app.post('/api/schedules', async (req, res) => {
       return res.status(400).json({ error: 'Λείπουν απαιτούμενα πεδία' });
     }
 
+    // STRICT: Reject past dates
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Athens' });
+    if (date < today) {
+      return res.status(400).json({ error: 'Δεν μπορείτε να προγραμματίσετε για ημερομηνία που πέρασε' });
+    }
+
     // Check if already scheduled for this user/location/date
     const existing = await db.prepare('SELECT * FROM schedules WHERE userId = ? AND locationId = ? AND date = ?').get(userId, locationId, date);
     if (existing) {
