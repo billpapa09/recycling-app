@@ -150,8 +150,8 @@ function setupModal() {
     });
 
     // Mobile: TikTok-style bottom sheet (follows finger, snaps on release)
-    const COLLAPSED_POS = 45; // % translateY when collapsed
-    const EXPANDED_POS = 0;   // % translateY when expanded
+    const COLLAPSED_POS = 40; // % translateY when collapsed
+    const EXPANDED_POS = 0;   // % translateY when expanded (shows everything)
 
     let touchStartY = 0;
     let touchStartTransform = COLLAPSED_POS;

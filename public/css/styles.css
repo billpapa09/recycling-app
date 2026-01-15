@@ -400,8 +400,8 @@ body {
 @media (max-width: 768px) {
   .modal-content {
     max-height: none;
-    height: 90vh;
-    transform: translateY(45%);
+    height: 95vh;
+    transform: translateY(40%);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
