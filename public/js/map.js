@@ -149,11 +149,40 @@ function setupModal() {
         currentLocation = null;
     });
 
-    // Mobile: Expand modal on scroll down (stays expanded until modal closes)
+    // Mobile: Touch-based bottom sheet drag
+    let startY = 0;
+    let isDragging = false;
+
     if (modalContent) {
-        modalContent.addEventListener('scroll', () => {
-            if (modalContent.scrollTop > 30) {
+        modalContent.addEventListener('touchstart', (e) => {
+            // Only start drag if touching near the top (drag handle area)
+            const rect = modalContent.getBoundingClientRect();
+            const touchY = e.touches[0].clientY - rect.top;
+            if (touchY < 40) { // First 40px is drag handle area
+                startY = e.touches[0].clientY;
+                isDragging = true;
+                modalContent.classList.add('dragging');
+            }
+        }, { passive: true });
+
+        modalContent.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            // Visual feedback could be added here
+        }, { passive: true });
+
+        modalContent.addEventListener('touchend', (e) => {
+            if (!isDragging) return;
+            isDragging = false;
+            modalContent.classList.remove('dragging');
+
+            const endY = e.changedTouches[0].clientY;
+            const diff = startY - endY;
+
+            // Swipe up (diff > 0) = expand, swipe down (diff < 0) = collapse
+            if (diff > 30) {
                 modalContent.classList.add('expanded');
+            } else if (diff < -30) {
+                modalContent.classList.remove('expanded');
             }
         }, { passive: true });
     }
