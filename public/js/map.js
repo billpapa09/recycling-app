@@ -151,7 +151,7 @@ function setupModal() {
 
     // Mobile: TikTok-style bottom sheet (follows finger, snaps on release)
     const COLLAPSED_POS = 50; // % translateY when collapsed (shows half)
-    const EXPANDED_POS = 5;   // % translateY when expanded (almost fullscreen)
+    const EXPANDED_POS = 0;   // % translateY when expanded (fullscreen)
 
     let touchStartY = 0;
     let touchStartTransform = COLLAPSED_POS;

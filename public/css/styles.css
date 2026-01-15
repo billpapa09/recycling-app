@@ -414,7 +414,7 @@ body {
   }
 
   .modal-content.expanded {
-    transform: translateY(5%);
+    transform: translateY(0);
   }
 
   .modal-content.dragging {
