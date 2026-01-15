@@ -393,6 +393,28 @@ body {
   max-height: 85vh;
   overflow-y: auto;
   position: relative;
+  transition: max-height 0.3s ease;
+}
+
+/* Mobile: Expand on scroll, add drag handle */
+@media (max-width: 768px) {
+  .modal-content {
+    max-height: 70vh;
+  }
+
+  .modal-content:before {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 0 auto 12px;
+  }
+
+  .modal-content.expanded {
+    max-height: 92vh;
+  }
 }
 
 .modal-close {

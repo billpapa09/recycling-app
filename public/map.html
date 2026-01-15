@@ -7,6 +7,8 @@
     <title>Χάρτης - Διαγωνισμός Ανακύκλωσης</title>
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 
@@ -75,7 +77,8 @@
                 <div class="schedule-section">
                     <h3>Προγραμματισμός</h3>
                     <div class="schedule-form">
-                        <input type="date" id="scheduleDate" class="schedule-input">
+                        <input type="text" id="scheduleDate" class="schedule-input" placeholder="Επιλέξτε ημερομηνία"
+                            readonly>
                         <button type="button" id="addScheduleBtn" class="btn btn-secondary btn-small">Θα πάω</button>
                     </div>
                     <div id="schedulesList" class="schedules-list">
@@ -87,6 +90,8 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/gr.js"></script>
     <script src="js/map.js"></script>
 </body>
 

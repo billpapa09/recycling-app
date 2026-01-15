@@ -139,6 +139,18 @@ function setupModal() {
         currentLocation = null;
     });
 
+    // Mobile: Expand modal on scroll down, snap back on scroll to top
+    const modalContent = modal.querySelector('.modal-content');
+    if (modalContent) {
+        modalContent.addEventListener('scroll', () => {
+            if (modalContent.scrollTop > 50) {
+                modalContent.classList.add('expanded');
+            } else {
+                modalContent.classList.remove('expanded');
+            }
+        });
+    }
+
     // Close on outside click
     modal.addEventListener('click', (e) => {
         if (e.target === modal) {
@@ -196,11 +208,17 @@ function setupModal() {
         }
     });
 
-    // Set default schedule date to tomorrow
-    const scheduleDate = document.getElementById('scheduleDate');
+    // Initialize Flatpickr with dark theme (no ugly native slider)
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    scheduleDate.valueAsDate = tomorrow;
+
+    flatpickr("#scheduleDate", {
+        dateFormat: "Y-m-d",
+        minDate: "today",
+        defaultDate: tomorrow,
+        locale: "gr",
+        disableMobile: true // Force Flatpickr even on mobile
+    });
 
     // Add schedule button
     document.getElementById('addScheduleBtn').addEventListener('click', async () => {
