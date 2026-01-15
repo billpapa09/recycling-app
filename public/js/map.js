@@ -166,9 +166,12 @@ function setupModal() {
             modalContent.classList.add('dragging');
         }, { passive: true });
 
-        // Touch Move - follow finger exactly
+        // Touch Move - follow finger exactly, LOCK page scroll
         modalContent.addEventListener('touchmove', (e) => {
             if (!isDragging) return;
+
+            // PREVENT page from scrolling - only modal moves
+            e.preventDefault();
 
             const touchCurrentY = e.touches[0].clientY;
             const deltaY = touchCurrentY - touchStartY;
@@ -182,7 +185,7 @@ function setupModal() {
             newPos = Math.max(EXPANDED_POS, Math.min(COLLAPSED_POS, newPos));
 
             modalContent.style.transform = `translateY(${newPos}%)`;
-        }, { passive: true });
+        }, { passive: false }); // MUST be false to allow preventDefault
 
         // Touch End - snap to closest
         modalContent.addEventListener('touchend', () => {
