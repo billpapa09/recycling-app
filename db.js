@@ -30,6 +30,18 @@ if (isVercel) {
         return sql.replace(/\?/g, () => `$${index++}`);
     };
 
+    // Helper to map lowercase Postgres keys back to camelCase (for compatibility)
+    const fixRow = (row) => {
+        if (!row) return row;
+        const newRow = { ...row };
+        if (newRow.firstname) { newRow.firstName = newRow.firstname; delete newRow.firstname; }
+        if (newRow.lastname) { newRow.lastName = newRow.lastname; delete newRow.lastname; }
+        if (newRow.userid) { newRow.userId = newRow.userid; delete newRow.userid; }
+        if (newRow.locationid) { newRow.locationId = newRow.locationid; delete newRow.locationid; }
+        if (newRow.createdat) { newRow.createdAt = newRow.createdat; delete newRow.createdat; }
+        return newRow;
+    };
+
     // Adapter for Postgres
     db = {
         pool,
@@ -37,7 +49,11 @@ if (isVercel) {
         // BUT server.js must be async now.
 
         query: async (text, params = []) => {
-            return await pool.query(convertSql(text), params);
+            const res = await pool.query(convertSql(text), params);
+            return {
+                ...res,
+                rows: res.rows.map(fixRow)
+            };
         },
 
         // Prepare method compatibility shim
@@ -46,11 +62,11 @@ if (isVercel) {
             return {
                 all: async (...args) => {
                     const res = await pool.query(convertedSql, args);
-                    return res.rows;
+                    return res.rows.map(fixRow);
                 },
                 get: async (...args) => {
                     const res = await pool.query(convertedSql, args);
-                    return res.rows[0];
+                    return fixRow(res.rows[0]);
                 },
                 run: async (...args) => {
                     const res = await pool.query(convertedSql, args);
